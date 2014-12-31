@@ -1,0 +1,106 @@
+SuSE AGENT USAGE README
+The Suse agent can be used to deploy and install application on remote systems
+in Cloud environment, which is Cloudify-compatible. This version of agent
+is tested and stable on Cloudify version 3.1. This readme and tutorial
+covers deployment of Nodecellar application (Cloudify example app) on Openstack based cloud.
+
+
+1. Required components:
+- agent package
+  'SuSE-11-final-3.1-agent.tar.gz'
+- configuration files:
+  'SuSE-agent-disable-requiretty.sh'
+  'SuSE-celeryd-cloudify.conf'
+  'SuSE-celeryd-cloudify.init'
+
+2. System requirements:
+- SLES 11 SP 3 operating system image with python 2.6.9 preinstalled
+- minimum of 2GB of RAM (recommended 4GB)
+
+3. Prerequisites
+- Cloudify Manager 3.1
+- Cloudify Client (CLI) 3.1 already connected to Cloudify Manager
+  (this can be veryfied using 'cfy --version')
+- git toolset installed on the Cloudify Client machine
+- an access to the Openstack based cloud environment.
+
+The best way to learn the usage of the SuSE agent package is to follow step by step
+tutorial. Basic Cloudify tutorial include Nodecellar application, which is more than
+suitable to show the capabilities of agent on new system.
+------------------------------------------------------------------------------------------------
+NOTE: The SuSE agent package can be used on any Cloudify-compatible environment.
+      The Openstack system is used here only for an example purposes.
+------------------------------------------------------------------------------------------------
+
+
+Let's start with downloading Nodecellar app release version 3.1.
+------------------------------------------------------------------------------------------------
+NOTE: You can follow the official Gigaspaces Cloudify documentation
+      for downloading of Nodecellar app
+- http://getcloudify.org/guide/3.1/quickstart.html
+------------------------------------------------------------------------------------------------
+
+
+Summary of what needs to be done:
+- git clone https://github.com/cloudify-cosmo/cloudify-nodecellar-example
+- git checkout tags/3.1
+
+
+Once checkout is complete, some minor modifications need to be done to the blueprint
+('openstack-blueprint.yaml'), as well as inputs.json files in order to utilize the SuSE agent.
+------------------------------------------------------------------------------------------------
+NOTE: For detailed Openstack deployment process:
+- http://getcloudify.org/guide/3.1/quickstart-openstack.html
+------------------------------------------------------------------------------------------------
+
+
+In the inputs.json file, change the values accordingly to Your preferences:
+- image: the id of the system on which the agent will be deployed
+  (taken from Your Cloud - in our case it should be SLES 11 SP3)
+- flavor: the size of the virtual machine that will be created for the agent machine
+  (once again - taken from Your Cloud provider)
+- agent_user: the user which will be configured on the agent machine
+
+In the blueprint file, further modifications are as follows:
+under nodecellar.nodes.MonitoredServer, which represents the agent machine type node, modify the
+properties/cloudify_agent/default subentry. Add entries:
+- 'agent_package_path: relative/path/from/blueprint/SuSE-11-final-3.1-agent.tar.gz'
+- 'celery_config_path: blueprints/{BPID}/relative/path/from/blueprint/SuSE-celeryd-cloudify.conf'
+- 'celery_init_path: blueprints/{BPID}/relative/path/from/blueprint/SuSE-celeryd-cloudify.init'
+- 'disable_requiretty_script_path: relative/path/from/blueprint/SuSE-agent-disable-requiretty.sh'
+
+Elaborating:
+- 'relative/path/from/blueprint/' is a relative path taken from the location
+of the blueprint file beeing modyfied (and is about to be uploaded), to the SuSE agent/configuration file.
+- {BPID} part needs to be replaced with the identification name of the blueprint, under which it will
+be uploaded to the Cloudify Manager machine.
+------------------------------------------------------------------------------------------------
+NOTE: The example lines taken from an actual configuration file:
+  nodecellar.nodes.MonitoredServer:
+    derived_from: cloudify.openstack.nodes.Server
+    properties:
+      cloudify_agent:
+        default:
+          user: vagrant
+          agent_package_path: SuSE-11-final-3.1-agent.tar.gz
+          celery_config_path: blueprints/bp/SuSE-celeryd-cloudify.conf
+          celery_init_path:  blueprints/bp/SuSE-celeryd-cloudify.init
+          disable_requiretty_script_path: SuSE-agent-disable-requiretty.sh
+
+In the above example, all files are present in the very same directory as the blueprint file.
+Also, the blueprint was subsequently uploaded onto the Manager machine with the id 'bp'.
+------------------------------------------------------------------------------------------------
+
+
+The next steps are to:
+- upload the blueprint onto the Manager:
+  cfy blueprints upload -b {BPID} -p {path/to/the/blueprint/blueprint_name}
+- create the deployment
+  cfy deployments create -b {BPID} -d {DPID}
+- execute the installation process
+  cfy executions start -d {DPID} -w install
+
+Where {BPID}, {DPID} are blueprint and deployment identification names of Your choosing, respectively.
+And once more, the process is described in greater detail Cloudify documentation pages (links in NOTE areas).
+
+
